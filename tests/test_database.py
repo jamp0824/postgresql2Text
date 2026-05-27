@@ -3,7 +3,7 @@
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from pg2text.database import (
     ColumnInfo,
@@ -185,3 +185,59 @@ class TestDatabaseClientSecurity:
         client = DatabaseClient(database_url="postgresql://test")
         result = client.execute("WITH cte AS (SELECT 42) SELECT count FROM cte")
         assert result.is_success
+
+
+    @patch("pg2text.database.create_engine")
+    def test_reject_multistatement(self, mock_engine):
+        mock_engine.return_value = MagicMock()
+        client = DatabaseClient(database_url="postgresql://test")
+        result = client.execute("SELECT 1; SELECT 2")
+        assert not result.is_success
+        assert "다중문" in result.error
+
+    @patch("pg2text.database.create_engine")
+    def test_reject_cte_with_insert(self, mock_engine):
+        mock_engine.return_value = MagicMock()
+        client = DatabaseClient(database_url="postgresql://test")
+        result = client.execute(
+            "WITH injected AS (INSERT INTO users(id) VALUES (1) RETURNING id) SELECT * FROM injected"
+        )
+        assert not result.is_success
+        assert "SELECT / WITH" in result.error or "쓰기/DDL" in result.error
+
+    @patch("pg2text.database.create_engine")
+    def test_allow_select_with_comment(self, mock_engine):
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.keys.return_value = ["n"]
+        mock_result.fetchall.return_value = [(1,)]
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value = mock_result
+        mock_engine.return_value.connect.return_value = mock_conn
+
+        client = DatabaseClient(database_url="postgresql://test")
+        result = client.execute("-- read only\nSELECT 1 AS n")
+        assert result.is_success
+
+    @patch("pg2text.database.create_engine")
+    def test_allow_function_call_in_select(self, mock_engine):
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.keys.return_value = ["now"]
+        mock_result.fetchall.return_value = [("2026-01-01",)]
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value = mock_result
+        mock_engine.return_value.connect.return_value = mock_conn
+
+        client = DatabaseClient(database_url="postgresql://test")
+        result = client.execute("SELECT now()")
+        assert result.is_success
+
+    @patch("pg2text.database.create_engine")
+    def test_reject_call_command(self, mock_engine):
+        mock_engine.return_value = MagicMock()
+        client = DatabaseClient(database_url="postgresql://test")
+        result = client.execute("CALL refresh_materialized_views()")
+        assert not result.is_success
