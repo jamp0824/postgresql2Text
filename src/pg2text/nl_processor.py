@@ -198,8 +198,6 @@ class NLProcessor:
 
 사용자 요청: {user_query}"""
 
-        messages.append({"role": "user", "content": user_message})
-
         try:
             raw_text = self._generate_text(
                 system_prompt=_SQL_SYSTEM_PROMPT,
@@ -267,8 +265,6 @@ class NLProcessor:
 {data_context}
 
 위 데이터를 분석하여 전문적인 Markdown 문서를 작성해주세요."""
-
-        messages.append({"role": "user", "content": user_message})
 
         try:
             markdown_content = self._generate_text(

@@ -23,6 +23,7 @@ app = typer.Typer(
     name="pg2text",
     help="🗄️  PostgreSQL 데이터를 자연어로 조회하고 문서로 작성합니다",
     add_completion=False,
+    pretty_exceptions_show_locals=False,
 )
 
 
