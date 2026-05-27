@@ -134,7 +134,7 @@ def cmd_query(
     schema: list[str] = typer.Option(["public"], "--schema", "-s", help="대상 스키마"),
     show_sql: bool = typer.Option(True, "--show-sql/--no-sql", help="생성된 SQL 표시"),
     show_data: bool = typer.Option(True, "--show-data/--no-data", help="조회 결과 표시"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="사용할 Claude 모델"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="사용할 Gemini 모델"),
 ):
     """
     자연어 질문으로 데이터를 조회하고 문서를 생성합니다.
@@ -228,7 +228,7 @@ def cmd_chat(
     schema: list[str] = typer.Option(["public"], "--schema", "-s", help="대상 스키마"),
     history_file: Optional[Path] = typer.Option(None, "--history", help="대화 기록 파일"),
     output_dir: Optional[Path] = typer.Option(None, "--output-dir", help="문서 저장 디렉터리"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="사용할 Claude 모델"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="사용할 Gemini 모델"),
 ):
     """
     대화형 세션을 시작합니다.

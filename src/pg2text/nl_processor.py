@@ -1,5 +1,5 @@
 """
-자연어 처리 모듈 — Claude API를 사용해 NL→SQL 변환 및 문서 내용 생성
+자연어 처리 모듈 — Gemini API를 사용해 NL→SQL 변환 및 문서 내용 생성
 """
 
 from __future__ import annotations
@@ -10,7 +10,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import anthropic
+from google import genai
+from google.genai import types
 
 from pg2text.config import settings
 from pg2text.database import QueryResult, TableSchema
@@ -104,8 +105,74 @@ class NLProcessor:
     """
 
     def __init__(self, model: str | None = None):
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        self._client: genai.Client | None = None
         self._model = model or settings.pg2text_model
+
+    @property
+    def client(self) -> genai.Client:
+        """Gemini 클라이언트를 지연 생성합니다."""
+        if self._client is None:
+            api_key = settings.gemini_api_key or settings.google_api_key
+            if not api_key:
+                raise RuntimeError(
+                    "GEMINI_API_KEY가 설정되지 않았습니다. .env 파일에 Gemini API 키를 입력하세요."
+                )
+            self._client = genai.Client(api_key=api_key)
+        return self._client
+
+    def _to_gemini_contents(
+        self,
+        messages: list[dict] | None,
+        user_message: str,
+    ) -> list[types.Content]:
+        """내부 대화 기록을 Gemini Content 형식으로 변환합니다."""
+        contents: list[types.Content] = []
+        for message in messages or []:
+            content = str(message.get("content", "")).strip()
+            if not content:
+                continue
+            role = "model" if message.get("role") == "assistant" else "user"
+            contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=content)],
+                )
+            )
+
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=user_message)],
+            )
+        )
+        return contents
+
+    def _generate_text(
+        self,
+        *,
+        system_prompt: str,
+        user_message: str,
+        conversation_history: list[dict] | None = None,
+        max_tokens: int = 2048,
+        response_mime_type: str | None = None,
+    ) -> str:
+        """Gemini generate_content 호출을 공통 처리합니다."""
+        config_kwargs: dict[str, Any] = {
+            "system_instruction": system_prompt,
+            "max_output_tokens": max_tokens,
+        }
+        if response_mime_type:
+            config_kwargs["response_mime_type"] = response_mime_type
+
+        response = self.client.models.generate_content(
+            model=self._model,
+            contents=self._to_gemini_contents(conversation_history, user_message),
+            config=types.GenerateContentConfig(**config_kwargs),
+        )
+        text = (response.text or "").strip()
+        if not text:
+            raise RuntimeError("Gemini API가 빈 응답을 반환했습니다.")
+        return text
 
     # ── NL → SQL ────────────────────────────────────────
 
@@ -124,8 +191,6 @@ class NLProcessor:
             conversation_history: 이전 대화 기록 (멀티턴 지원)
         """
         schema_text = "\n\n".join(t.to_prompt_str() for t in schema.values())
-        messages = list(conversation_history or [])
-
         # 스키마를 사용자 메시지에 포함
         user_message = f"""다음 스키마를 참고하여 SQL 쿼리를 작성해주세요.
 
@@ -136,13 +201,13 @@ class NLProcessor:
         messages.append({"role": "user", "content": user_message})
 
         try:
-            response = self._client.messages.create(
-                model=self._model,
+            raw_text = self._generate_text(
+                system_prompt=_SQL_SYSTEM_PROMPT,
+                user_message=user_message,
+                conversation_history=conversation_history,
                 max_tokens=2048,
-                system=_SQL_SYSTEM_PROMPT,
-                messages=messages,
+                response_mime_type="application/json",
             )
-            raw_text = response.content[0].text.strip()
 
             # JSON 추출 (마크다운 코드블록 처리)
             json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
@@ -161,8 +226,8 @@ class NLProcessor:
 
         except json.JSONDecodeError as e:
             return SQLGenResult(sql="", explanation="", error=f"JSON 파싱 오류: {e}")
-        except anthropic.APIError as e:
-            logger.error("Claude API 오류: %s", e)
+        except Exception as e:
+            logger.error("Gemini API 오류: %s", e)
             return SQLGenResult(sql="", explanation="", error=f"API 오류: {e}")
 
     # ── 데이터 → 문서 ────────────────────────────────────
@@ -194,8 +259,6 @@ class NLProcessor:
             )
 
         data_context = "\n\n".join(data_context_parts)
-        messages = list(conversation_history or [])
-
         user_message = f"""다음 데이터를 바탕으로 문서를 작성해주세요.
 
 사용자 요청: {user_request}
@@ -208,13 +271,12 @@ class NLProcessor:
         messages.append({"role": "user", "content": user_message})
 
         try:
-            response = self._client.messages.create(
-                model=self._model,
+            markdown_content = self._generate_text(
+                system_prompt=_DOC_SYSTEM_PROMPT,
+                user_message=user_message,
+                conversation_history=conversation_history,
                 max_tokens=4096,
-                system=_DOC_SYSTEM_PROMPT,
-                messages=messages,
             )
-            markdown_content = response.content[0].text.strip()
 
             # 제목 추출
             title_match = re.search(r"^#\s+(.+)$", markdown_content, re.MULTILINE)
@@ -227,7 +289,7 @@ class NLProcessor:
                 metadata={"user_request": user_request},
             )
 
-        except anthropic.APIError as e:
+        except Exception as e:
             logger.error("문서 생성 API 오류: %s", e)
             return GeneratedDocument(
                 title="오류",
@@ -253,7 +315,6 @@ class NLProcessor:
             additional_data: 추가로 조회된 데이터 (있는 경우)
             conversation_history: 이전 대화 기록
         """
-        messages = list(conversation_history or [])
         add_data_text = ""
         if additional_data:
             parts = []
@@ -275,16 +336,13 @@ class NLProcessor:
         if add_data_text:
             user_message += f"\n=== 추가 데이터 ===\n{add_data_text}"
 
-        messages.append({"role": "user", "content": user_message})
-
         try:
-            response = self._client.messages.create(
-                model=self._model,
+            new_markdown = self._generate_text(
+                system_prompt=_EDIT_SYSTEM_PROMPT,
+                user_message=user_message,
+                conversation_history=conversation_history,
                 max_tokens=4096,
-                system=_EDIT_SYSTEM_PROMPT,
-                messages=messages,
             )
-            new_markdown = response.content[0].text.strip()
 
             # 제목 추출
             title_match = re.search(r"^#\s+(.+)$", new_markdown, re.MULTILINE)
@@ -301,7 +359,7 @@ class NLProcessor:
                 metadata={**current_document.metadata, "last_edit": edit_request},
             )
 
-        except anthropic.APIError as e:
+        except Exception as e:
             logger.error("문서 편집 API 오류: %s", e)
             return current_document  # 실패 시 원본 반환
 
@@ -314,7 +372,6 @@ class NLProcessor:
         context: str | None = None,
     ) -> str:
         """일반 대화 응답 생성"""
-        messages = list(conversation_history or [])
         system = (
             "당신은 PostgreSQL 데이터 분석 전문가이자 문서 작성 도우미입니다. "
             "사용자가 데이터를 이해하고 문서를 작성하는 것을 도와주세요."
@@ -322,15 +379,12 @@ class NLProcessor:
         if context:
             system += f"\n\n현재 컨텍스트:\n{context}"
 
-        messages.append({"role": "user", "content": user_message})
-
         try:
-            response = self._client.messages.create(
-                model=self._model,
+            return self._generate_text(
+                system_prompt=system,
+                user_message=user_message,
+                conversation_history=conversation_history,
                 max_tokens=1024,
-                system=system,
-                messages=messages,
             )
-            return response.content[0].text.strip()
-        except anthropic.APIError as e:
+        except Exception as e:
             return f"오류: {e}"

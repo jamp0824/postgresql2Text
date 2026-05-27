@@ -17,9 +17,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Anthropic ────────────────────────────────────────
-    anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
-    pg2text_model: str = Field(default="claude-sonnet-4-6", alias="PG2TEXT_MODEL")
+    # ── Gemini ───────────────────────────────────────────
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
+    pg2text_model: str = Field(default="gemini-3.5-flash", alias="PG2TEXT_MODEL")
 
     # ── PostgreSQL ───────────────────────────────────────
     pg_host: str = Field(default="localhost", alias="PG_HOST")

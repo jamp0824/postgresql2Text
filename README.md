@@ -2,7 +2,7 @@
 
 **자연어로 PostgreSQL 데이터를 조회하고, 대화형으로 문서를 작성·수정하는 도구**
 
-Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보고서(Markdown / Word)로 작성합니다.  
+Gemini API가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보고서(Markdown / Word)로 작성합니다.  
 대화를 통해 문서를 반복적으로 수정·보완할 수 있습니다.
 
 ---
@@ -32,18 +32,18 @@ Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보
    ├── [데이터 조회 요청]
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ SQL 생성
+   │   NLProcessor ──────→ Gemini API ──→ SQL 생성
    │      │
    │      ▼
    │   DatabaseClient ──→ PostgreSQL ──→ 데이터 반환
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ 문서 작성
+   │   NLProcessor ──────→ Gemini API ──→ 문서 작성
    │
    ├── [문서 편집 요청]
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ 문서 수정
+   │   NLProcessor ──────→ Gemini API ──→ 문서 수정
    │
    └── [내보내기 요청]
           │
@@ -59,7 +59,7 @@ Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보
 
 - Python 3.10+
 - PostgreSQL 12+
-- Anthropic API Key
+- Gemini API Key
 
 ### 설치 방법
 
@@ -79,8 +79,8 @@ cp .env.example .env
 ### `.env` 설정
 
 ```ini
-# Anthropic API Key (필수)
-ANTHROPIC_API_KEY=sk-ant-...
+# Gemini API Key (필수)
+GEMINI_API_KEY=
 
 # PostgreSQL 연결 정보 (필수)
 PG_HOST=localhost
@@ -90,7 +90,7 @@ PG_USER=postgres
 PG_PASSWORD=your_password
 
 # 선택 설정
-PG2TEXT_MODEL=claude-sonnet-4-6
+PG2TEXT_MODEL=gemini-3.5-flash
 PG2TEXT_OUTPUT_DIR=./output
 ```
 
@@ -187,7 +187,7 @@ pg2text schema --format text
 
 | 라이브러리 | 역할 |
 |-----------|------|
-| [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) | Claude API 연동 (NL→SQL, 문서 생성) |
+| [Google Gen AI SDK](https://googleapis.github.io/python-genai/) | Gemini API 연동 (NL→SQL, 문서 생성) |
 | [SQLAlchemy](https://www.sqlalchemy.org/) | PostgreSQL 연결 및 스키마 인트로스펙션 |
 | [psycopg2](https://www.psycopg.org/) | PostgreSQL 드라이버 |
 | [python-docx](https://python-docx.readthedocs.io/) | Word(.docx) 문서 생성 |
@@ -206,7 +206,7 @@ postgresql2Text/
 │       ├── __init__.py
 │       ├── config.py          # 환경변수 설정 (pydantic-settings)
 │       ├── database.py        # PostgreSQL 연결, 스키마 로딩, 쿼리 실행
-│       ├── nl_processor.py    # Claude API — NL→SQL, 문서 생성/편집
+│       ├── nl_processor.py    # Gemini API — NL→SQL, 문서 생성/편집
 │       ├── doc_builder.py     # Markdown / Word 문서 빌더
 │       ├── conversation.py    # 대화 세션 관리, 인텐트 분류
 │       └── cli.py             # Typer CLI 진입점
