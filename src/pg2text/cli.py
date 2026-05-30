@@ -432,6 +432,101 @@ def cmd_schema(
     db.close()
 
 
+# ─── 명령어: loan-demo ───────────────────────────────────────────────────────
+
+
+@app.command("loan-demo")
+def cmd_loan_demo(
+    question: str = typer.Argument(
+        "이번 달 개인여신 연체 관련 특이사항을 찾아줘",
+        help="개인여신 업무 질문",
+    ),
+    schema: list[str] = typer.Option(["public"], "--schema", "-s", help="대상 스키마"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="보고서 저장 경로"),
+    show_sql: bool = typer.Option(True, "--show-sql/--no-sql", help="실행 SQL 표시"),
+):
+    """
+    개인여신 AI Data Workbench 1차 PoC 시나리오를 실행합니다.
+
+    사전 준비:
+        psql ... -f examples/mock_personal_loan_data.sql
+    """
+    from pg2text.database import DatabaseClient
+    from pg2text.doc_builder import DocumentBuilder
+    from pg2text.workbench import PersonalLoanWorkbench
+
+    setup_logging()
+    console.print(
+        Panel.fit(
+            "[bold cyan]개인여신 AI Data Workbench[/bold cyan]\n"
+            "[dim]작은 단위 실행 → 검증 → 재실행 기준 확인[/dim]",
+            border_style="cyan",
+        )
+    )
+    console.print(f"\n[bold]질문:[/bold] {question}\n")
+
+    db = DatabaseClient()
+    workbench = PersonalLoanWorkbench()
+    builder = DocumentBuilder()
+
+    try:
+        with console.status("DB 연결 및 스키마 로딩..."):
+            if not db.test_connection():
+                console.print("[red]DB 연결 실패[/red]")
+                raise typer.Exit(1)
+            db.load_schemas(schemas=list(schema))
+
+        if workbench.table_name not in db.schemas:
+            console.print(
+                "[red]개인여신 샘플 테이블이 없습니다.[/red]\n"
+                "먼저 [cyan]examples/mock_personal_loan_data.sql[/cyan]을 실행하세요."
+            )
+            raise typer.Exit(1)
+
+        with console.status("시나리오 실행 중..."):
+            result = workbench.run(question, db)
+
+        console.print(Panel(result.plan.title, title="시나리오", border_style="blue"))
+        console.print("[bold]분석 계획[/bold]")
+        for idx, step in enumerate(result.plan.steps, 1):
+            console.print(f"  {idx}. {step}")
+        console.print(f"[dim]재실행 기준: {result.plan.rerun_policy}[/dim]\n")
+
+        if show_sql:
+            _print_sql(result.sql)
+
+        if result.query_result.is_success and result.query_result.columns:
+            console.print(f"\n[dim]조회 결과 ({result.query_result.row_count}건):[/dim]")
+            _print_result_table(result.query_result.columns, result.query_result.rows)
+        elif not result.query_result.is_success:
+            console.print(f"[red]쿼리 오류:[/red] {result.query_result.error}")
+
+        validation_table = Table(title="검증 결과", show_header=True)
+        validation_table.add_column("검증")
+        validation_table.add_column("상태")
+        validation_table.add_column("상세")
+        for item in result.validation_items:
+            style = "green" if item.status == "통과" else "yellow"
+            if item.status == "불일치":
+                style = "red"
+            validation_table.add_row(item.name, f"[{style}]{item.status}[/{style}]", item.detail)
+        console.print(validation_table)
+
+        console.print(
+            Panel(
+                Markdown(result.document.markdown_content),
+                title=f"📄 {result.document.title}",
+                border_style="green",
+            )
+        )
+
+        saved = builder.save(result.document, format="md", output_path=output)
+        console.print(f"\n[green]✓[/green] 저장 완료: [cyan]{saved}[/cyan]")
+
+    finally:
+        db.close()
+
+
 # ─── 명령어: version ─────────────────────────────────────────────────────────
 
 

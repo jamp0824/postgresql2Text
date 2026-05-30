@@ -172,6 +172,28 @@ pg2text schema --table orders
 pg2text schema --format text
 ```
 
+### 5. 개인여신 AI Data Workbench PoC
+
+작은 단위로 실행 → 검증 → 재실행 기준 확인이 가능한 개인여신 데모입니다.
+
+```bash
+# 샘플 개인여신 마트 생성
+psql -h localhost -p 5432 -U <user> -d <db> -f examples/mock_personal_loan_data.sql
+
+# 월간 특이사항 자동 도출
+pg2text loan-demo "이번 달 개인여신 연체 관련 특이사항을 찾아줘"
+
+# 보고서명 없이 필요한 데이터 조회
+pg2text loan-demo "잔액은 크지 않은데 연체 비중이 높은 상품을 찾아줘"
+
+# 데이터 검증
+pg2text loan-demo "이번 달 수치가 이상한데 검증해줘"
+```
+
+PoC 범위는 `AI-Ready DB마트 샘플`, `Semantic Layer`, `분석계획`, `검증 결과`,
+`보고서 초안`까지입니다. Lineage, 중복 SQL 탐지, 테스트 케이스 자동 생성은 2차
+고도화 항목으로 분리했습니다.
+
 ---
 
 ## 지원 출력 형식

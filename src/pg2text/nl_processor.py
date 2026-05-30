@@ -181,6 +181,7 @@ class NLProcessor:
         user_query: str,
         schema: dict[str, TableSchema],
         conversation_history: list[dict] | None = None,
+        semantic_context: str | None = None,
     ) -> SQLGenResult:
         """
         자연어 질문을 PostgreSQL SELECT 쿼리로 변환.
@@ -192,9 +193,19 @@ class NLProcessor:
         """
         schema_text = "\n\n".join(t.to_prompt_str() for t in schema.values())
         # 스키마를 사용자 메시지에 포함
+        semantic_block = ""
+        if semantic_context:
+            semantic_block = f"""
+
+다음 업무 의미 계층도 함께 참고하세요.
+
+{semantic_context}
+"""
+
         user_message = f"""다음 스키마를 참고하여 SQL 쿼리를 작성해주세요.
 
 {schema_text}
+{semantic_block}
 
 사용자 요청: {user_query}"""
 
