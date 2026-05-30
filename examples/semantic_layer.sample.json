@@ -1,0 +1,100 @@
+{
+  "layer_name": "personal_loan_semantic_layer_sample_draft",
+  "business_terms": [
+    {
+      "name": "잔액",
+      "synonyms": ["대출잔액", "총잔액"],
+      "description": "기준월 말 상품별 개인여신 잔액. 실제 적용 전 현업 승인 정의로 교체해야 합니다.",
+      "metrics": ["잔액"],
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft",
+        "note": "실제 ADW SQL 또는 정형보고서 정의로 교체 필요"
+      }
+    },
+    {
+      "name": "연체금액",
+      "synonyms": ["1개월 이상 연체금액", "연체"],
+      "description": "1개월 이상 연체로 분류된 금액. 실제 연체 기준일/상태코드 정의 필요.",
+      "metrics": ["1개월 이상 연체금액", "1개월 이상 연체율"],
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft",
+        "note": "실제 연체 상태코드와 기준일 규칙 필요"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "name": "잔액",
+      "column": "balance_amount",
+      "formula": "상품별 기준월 말 잔액 합계",
+      "base_date_rule": "base_month 기준 월말",
+      "description": "상품별 개인여신 잔액 규모",
+      "unit": "원",
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft"
+      }
+    },
+    {
+      "name": "1개월 이상 연체율",
+      "column": "delinquency_rate_1m",
+      "formula": "delinquent_amount_1m / balance_amount",
+      "numerator": "delinquent_amount_1m",
+      "denominator": "balance_amount",
+      "base_date_rule": "base_month 기준 월말",
+      "description": "잔액 대비 1개월 이상 연체금액 비중",
+      "unit": "%",
+      "rounding_rule": "소수점 둘째 자리",
+      "validation_sql": "SELECT base_month, product_code, delinquent_amount_1m / NULLIF(balance_amount, 0) FROM public.personal_loan_mart",
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft",
+        "note": "실제 산식/반올림/제외조건 확인 필요"
+      }
+    }
+  ],
+  "reports": [
+    {
+      "name": "개인여신 월간 특이사항 보고",
+      "cycle": "월간",
+      "metrics": ["잔액", "1개월 이상 연체금액", "1개월 이상 연체율"],
+      "description": "월별 상품군 변동, 리스크 후보, 확인 필요사항 보고",
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft"
+      }
+    }
+  ],
+  "templates": [
+    {
+      "name": "월간 특이사항 자동 도출",
+      "intent_keywords": ["특이사항", "이번 달", "월간", "연체"],
+      "steps": [
+        "최근 기준월 식별",
+        "연체 관련 지표 조회",
+        "전월 대비 증감률 계산",
+        "증가 기여 상품 분석",
+        "보고서 반영 후보 도출"
+      ],
+      "output_items": ["연체금액 증가 상위 상품", "확인 필요사항", "보고서용 문장"],
+      "source": {
+        "source_type": "demo_unverified",
+        "source_name": "sample placeholder",
+        "owner": "pg2text demo",
+        "approval_status": "draft"
+      }
+    }
+  ]
+}

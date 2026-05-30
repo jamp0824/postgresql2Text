@@ -34,7 +34,7 @@ class Message:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_api_dict(self) -> dict:
-        """Anthropic API 형식으로 변환"""
+        """LLM API에 전달할 최소 메시지 형식으로 변환"""
         return {"role": self.role, "content": self.content}
 
 
@@ -67,7 +67,7 @@ class ConversationHistory:
         )
 
     def to_api_messages(self) -> list[dict]:
-        """Anthropic API 메시지 형식으로 변환"""
+        """LLM API 메시지 형식으로 변환"""
         return [m.to_api_dict() for m in self._messages]
 
     def save(self, path: Path) -> None:
@@ -177,7 +177,7 @@ class InteractiveSession:
 
     컴포넌트:
     - DatabaseClient: DB 연결 및 쿼리 실행
-    - NLProcessor: Claude API 기반 NL→SQL 및 문서 생성
+    - NLProcessor: Gemini API 기반 NL→SQL 및 문서 생성
     - DocumentBuilder: 문서 파일 저장
     - ConversationHistory: 대화 기록 관리
     """

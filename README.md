@@ -2,7 +2,7 @@
 
 **자연어로 PostgreSQL 데이터를 조회하고, 대화형으로 문서를 작성·수정하는 도구**
 
-Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보고서(Markdown / Word)로 작성합니다.  
+Gemini API가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보고서(Markdown / Word)로 작성합니다.  
 대화를 통해 문서를 반복적으로 수정·보완할 수 있습니다.
 
 ---
@@ -32,18 +32,18 @@ Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보
    ├── [데이터 조회 요청]
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ SQL 생성
+   │   NLProcessor ──────→ Gemini API ──→ SQL 생성
    │      │
    │      ▼
    │   DatabaseClient ──→ PostgreSQL ──→ 데이터 반환
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ 문서 작성
+   │   NLProcessor ──────→ Gemini API ──→ 문서 작성
    │
    ├── [문서 편집 요청]
    │      │
    │      ▼
-   │   NLProcessor ──────→ Claude API ──→ 문서 수정
+   │   NLProcessor ──────→ Gemini API ──→ 문서 수정
    │
    └── [내보내기 요청]
           │
@@ -59,7 +59,7 @@ Claude AI가 자연어를 SQL로 변환하고, 조회 결과를 전문적인 보
 
 - Python 3.10+
 - PostgreSQL 12+
-- Anthropic API Key
+- Gemini API Key
 
 ### 설치 방법
 
@@ -79,8 +79,8 @@ cp .env.example .env
 ### `.env` 설정
 
 ```ini
-# Anthropic API Key (필수)
-ANTHROPIC_API_KEY=sk-ant-...
+# Gemini API Key (필수)
+GEMINI_API_KEY=
 
 # PostgreSQL 연결 정보 (필수)
 PG_HOST=localhost
@@ -90,7 +90,7 @@ PG_USER=postgres
 PG_PASSWORD=your_password
 
 # 선택 설정
-PG2TEXT_MODEL=claude-sonnet-4-6
+PG2TEXT_MODEL=gemini-3.5-flash
 PG2TEXT_OUTPUT_DIR=./output
 ```
 
@@ -172,6 +172,40 @@ pg2text schema --table orders
 pg2text schema --format text
 ```
 
+### 5. 개인여신 AI Data Workbench PoC
+
+작은 단위로 실행 → 검증 → 재실행 기준 확인이 가능한 개인여신 데모입니다.
+기본 내장 Semantic Layer와 샘플 마트 데이터는 **검증 전 PoC 샘플**이며,
+업무 확정값이나 공식 산식으로 사용하면 안 됩니다.
+
+```bash
+# 샘플 개인여신 마트 생성
+psql -h localhost -p 5432 -U <user> -d <db> -f examples/mock_personal_loan_data.sql
+
+# 월간 특이사항 자동 도출
+pg2text loan-demo "이번 달 개인여신 연체 관련 특이사항을 찾아줘"
+
+# 보고서명 없이 필요한 데이터 조회
+pg2text loan-demo "잔액은 크지 않은데 연체 비중이 높은 상품을 찾아줘"
+
+# 데이터 검증
+pg2text loan-demo "이번 달 수치가 이상한데 검증해줘"
+
+# 출처/승인상태가 포함된 Semantic Layer 파일을 명시해서 실행
+pg2text loan-demo \
+  "이번 달 개인여신 연체 관련 특이사항을 찾아줘" \
+  --semantic-layer examples/semantic_layer.sample.json
+```
+
+PoC 범위는 `AI-Ready DB마트 샘플`, `Semantic Layer`, `분석계획`, `검증 결과`,
+`보고서 초안`까지입니다. Lineage, 중복 SQL 탐지, 테스트 케이스 자동 생성은 2차
+고도화 항목으로 분리했습니다.
+
+실제 업무 적용 전에는 `ADW 기존 SQL`, `정형보고서`, `데이터 사전`,
+`현업 승인 산식표`를 근거로 Semantic Layer를 구성하고, 각 항목에
+`source_type`, `source_name`, `owner`, `approval_status`를 포함해야 합니다.
+`approval_status=approved`가 아닌 항목은 보고서에서 검토 후보로만 취급해야 합니다.
+
 ---
 
 ## 지원 출력 형식
@@ -187,7 +221,7 @@ pg2text schema --format text
 
 | 라이브러리 | 역할 |
 |-----------|------|
-| [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) | Claude API 연동 (NL→SQL, 문서 생성) |
+| [Google Gen AI SDK](https://googleapis.github.io/python-genai/) | Gemini API 연동 (NL→SQL, 문서 생성) |
 | [SQLAlchemy](https://www.sqlalchemy.org/) | PostgreSQL 연결 및 스키마 인트로스펙션 |
 | [psycopg2](https://www.psycopg.org/) | PostgreSQL 드라이버 |
 | [python-docx](https://python-docx.readthedocs.io/) | Word(.docx) 문서 생성 |
@@ -206,7 +240,7 @@ postgresql2Text/
 │       ├── __init__.py
 │       ├── config.py          # 환경변수 설정 (pydantic-settings)
 │       ├── database.py        # PostgreSQL 연결, 스키마 로딩, 쿼리 실행
-│       ├── nl_processor.py    # Claude API — NL→SQL, 문서 생성/편집
+│       ├── nl_processor.py    # Gemini API — NL→SQL, 문서 생성/편집
 │       ├── doc_builder.py     # Markdown / Word 문서 빌더
 │       ├── conversation.py    # 대화 세션 관리, 인텐트 분류
 │       └── cli.py             # Typer CLI 진입점

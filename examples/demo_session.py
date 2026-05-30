@@ -5,7 +5,7 @@ pg2text 사용 예시 — 프로그래밍 방식으로 세션 사용하기
     python examples/demo_session.py
 
 환경변수:
-    ANTHROPIC_API_KEY, PG_HOST, PG_DATABASE, PG_USER, PG_PASSWORD
+    GEMINI_API_KEY, PG_HOST, PG_DATABASE, PG_USER, PG_PASSWORD
 """
 
 from pathlib import Path
