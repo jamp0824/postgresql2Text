@@ -81,3 +81,5 @@ def test_report_uses_non_deterministic_language_policy():
     assert "보고서 반영 후보" in document.markdown_content
     assert "원인 확정이 아니라" in document.markdown_content
     assert "재실행 기준" in document.markdown_content
+    assert "검증 전 Semantic Layer" in document.markdown_content
+    assert document.metadata["unapproved_semantic_items"]

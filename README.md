@@ -175,6 +175,8 @@ pg2text schema --format text
 ### 5. 개인여신 AI Data Workbench PoC
 
 작은 단위로 실행 → 검증 → 재실행 기준 확인이 가능한 개인여신 데모입니다.
+기본 내장 Semantic Layer와 샘플 마트 데이터는 **검증 전 PoC 샘플**이며,
+업무 확정값이나 공식 산식으로 사용하면 안 됩니다.
 
 ```bash
 # 샘플 개인여신 마트 생성
@@ -188,11 +190,21 @@ pg2text loan-demo "잔액은 크지 않은데 연체 비중이 높은 상품을 
 
 # 데이터 검증
 pg2text loan-demo "이번 달 수치가 이상한데 검증해줘"
+
+# 출처/승인상태가 포함된 Semantic Layer 파일을 명시해서 실행
+pg2text loan-demo \
+  "이번 달 개인여신 연체 관련 특이사항을 찾아줘" \
+  --semantic-layer examples/semantic_layer.sample.json
 ```
 
 PoC 범위는 `AI-Ready DB마트 샘플`, `Semantic Layer`, `분석계획`, `검증 결과`,
 `보고서 초안`까지입니다. Lineage, 중복 SQL 탐지, 테스트 케이스 자동 생성은 2차
 고도화 항목으로 분리했습니다.
+
+실제 업무 적용 전에는 `ADW 기존 SQL`, `정형보고서`, `데이터 사전`,
+`현업 승인 산식표`를 근거로 Semantic Layer를 구성하고, 각 항목에
+`source_type`, `source_name`, `owner`, `approval_status`를 포함해야 합니다.
+`approval_status=approved`가 아닌 항목은 보고서에서 검토 후보로만 취급해야 합니다.
 
 ---
 

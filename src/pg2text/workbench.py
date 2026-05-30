@@ -325,6 +325,12 @@ LIMIT 10
         lines = [
             f"# {plan.title}",
             "",
+            "## 신뢰 등급",
+            f"- {self.semantic_layer.trust_notice()}",
+            f"- Semantic Layer: {self.semantic_layer.layer_name}",
+            f"- 미승인 항목 수: {len(self.semantic_layer.unapproved_items())}",
+            "- 본 결과는 출처/승인상태가 확인된 항목만 업무 확정값으로 사용할 수 있습니다.",
+            "",
             "## 질문 해석",
             f"- 원문 질문: {question}",
             f"- 해석: {plan.interpreted_question}",
@@ -375,6 +381,9 @@ LIMIT 10
                 "user_request": question,
                 "scenario": plan.scenario,
                 "base_month": str(base_month),
+                "semantic_layer": self.semantic_layer.layer_name,
+                "semantic_trust_notice": self.semantic_layer.trust_notice(),
+                "unapproved_semantic_items": self.semantic_layer.unapproved_items(),
                 "validation": [item.__dict__ for item in validation_items],
             },
         )

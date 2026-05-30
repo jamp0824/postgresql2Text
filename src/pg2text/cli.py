@@ -442,6 +442,11 @@ def cmd_loan_demo(
         help="개인여신 업무 질문",
     ),
     schema: list[str] = typer.Option(["public"], "--schema", "-s", help="대상 스키마"),
+    semantic_layer: Optional[Path] = typer.Option(
+        None,
+        "--semantic-layer",
+        help="출처/승인상태가 포함된 Semantic Layer JSON 경로",
+    ),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="보고서 저장 경로"),
     show_sql: bool = typer.Option(True, "--show-sql/--no-sql", help="실행 SQL 표시"),
 ):
@@ -453,6 +458,7 @@ def cmd_loan_demo(
     """
     from pg2text.database import DatabaseClient
     from pg2text.doc_builder import DocumentBuilder
+    from pg2text.semantic import SemanticLayer
     from pg2text.workbench import PersonalLoanWorkbench
 
     setup_logging()
@@ -466,7 +472,12 @@ def cmd_loan_demo(
     console.print(f"\n[bold]질문:[/bold] {question}\n")
 
     db = DatabaseClient()
-    workbench = PersonalLoanWorkbench()
+    loaded_semantic_layer = (
+        SemanticLayer.from_json_file(semantic_layer)
+        if semantic_layer is not None
+        else None
+    )
+    workbench = PersonalLoanWorkbench(semantic_layer=loaded_semantic_layer)
     builder = DocumentBuilder()
 
     try:
@@ -485,6 +496,15 @@ def cmd_loan_demo(
 
         with console.status("시나리오 실행 중..."):
             result = workbench.run(question, db)
+
+        notice_style = "green" if not workbench.semantic_layer.has_unapproved_items else "yellow"
+        console.print(
+            Panel(
+                workbench.semantic_layer.trust_notice(),
+                title="Semantic Layer 신뢰 등급",
+                border_style=notice_style,
+            )
+        )
 
         console.print(Panel(result.plan.title, title="시나리오", border_style="blue"))
         console.print("[bold]분석 계획[/bold]")
