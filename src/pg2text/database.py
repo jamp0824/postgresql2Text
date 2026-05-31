@@ -13,6 +13,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from pg2text.config import settings
+from pg2text.sql_guard import validate_readonly_sql
 
 logger = logging.getLogger(__name__)
 
@@ -195,14 +196,14 @@ class DatabaseClient:
         SELECT 쿼리 실행 후 QueryResult 반환.
         안전을 위해 SELECT만 허용 (DML 차단).
         """
-        normalized = sql.strip().upper()
-        if not normalized.startswith("SELECT") and not normalized.startswith("WITH"):
+        validation_error = validate_readonly_sql(sql)
+        if validation_error:
             return QueryResult(
                 sql=sql,
                 columns=[],
                 rows=[],
                 row_count=0,
-                error="보안상 SELECT / WITH 쿼리만 허용됩니다.",
+                error=validation_error,
             )
 
         try:
